@@ -1,66 +1,77 @@
-# Ryomc Image for Codex Desktop
+# Ryomc Image MCP
 
-在 Codex Desktop 对话中用自己的 [Ryomc API](https://api.ryomc.top) 密钥文生图或图生图。Codex 调用本地 Skill，Skill 向 `/v1/responses` 发送图片工具请求，生成的 PNG 保存到本机并可在对话里显示。它**不是**修改 Codex 内置图片工具的计费线路。
+在 Codex Desktop 对话中通过 [Ryomc API](https://api.ryomc.top) 文生图或编辑本机图片。这个版本使用本地 MCP 工具，向 Ryomc 的 **Images API** 发起请求；不再把图片工具塞进聊天模型的 `/v1/responses` 请求。
+
+受 [micu-image-mcp](https://github.com/Subaru486desuwa/micu-image-mcp) 的工具设计启发，本仓库针对 Ryomc 独立实现了三个工具：`image_generate`、`image_edit`、`server_info`。没有移植原项目特有的米醋模型路由、自动重试、批量编辑或多图融合，因为这些行为尚未在 Ryomc 上验证。
 
 ## 使用前
 
-1. 在 Ryomc API 网站创建一个用户 API 密钥，选择可用的 **image 分组**，并给该密钥设置合适的额度。不要使用 CPA 管理密钥。
-2. 安装 Python 3.10 或更新版本，并确认 Codex Desktop 可以执行本机命令。
-3. 每台电脑只需配置一次密钥。每次生成会消耗站点余额；工具不会自动重试。
+1. 在 Ryomc 网站创建自己的**用户 API 密钥**，给它开放 `image` 分组、`gpt-image-2` 模型和适当的额度。不要使用 CPA 管理密钥。
+2. 安装 Python 3.10+ 与 Codex Desktop/CLI。需要本机能够运行 `codex mcp add`。
+3. 每次生成或编辑只请求一张，不自动重试。图片请求可能收费；具体金额请以 Ryomc 使用日志为准。
 
-## 安装 Skill
+> 当前只验证了 Ryomc 的 `/v1/images/generations`、`/v1/images/edits` 路由能到达 New API；**尚未用有效密钥完成真实 `gpt-image-2` 出图测试**。如果服务端拒绝该模型，需先在 Ryomc 的 New API/上游渠道开放 Images API，不能仅修改本地 MCP。
 
-先下载仓库：
+## Windows 安装
 
-```text
-git clone https://github.com/666666666666gao/image.git
-```
-
-Windows PowerShell（在下载仓库的上级目录执行）：
+在 PowerShell 中执行：
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.codex\skills" | Out-Null
-Copy-Item -Recurse ".\image\plugins\ryomc-image\skills\ryomc-image" "$env:USERPROFILE\.codex\skills\ryomc-image"
-py -3 "$env:USERPROFILE\.codex\skills\ryomc-image\scripts\ryomc_image.py" configure
+git clone https://github.com/666666666666gao/image.git
+Set-Location image
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe .\plugins\ryomc-image\server.py configure
+$py = (Resolve-Path .\.venv\Scripts\python.exe).Path
+$server = (Resolve-Path .\plugins\ryomc-image\server.py).Path
+codex mcp add ryomc-image -- $py $server
+codex mcp list
 ```
 
-macOS / Linux（在下载仓库的上级目录执行）：
+`configure` 会在终端隐藏输入密钥。不要把密钥粘贴到聊天、`config.toml` 或 GitHub。
+
+## macOS / Linux 安装
+
+在终端中执行：
 
 ```bash
-mkdir -p "$HOME/.codex/skills"
-cp -R ./image/plugins/ryomc-image/skills/ryomc-image "$HOME/.codex/skills/ryomc-image"
-python3 "$HOME/.codex/skills/ryomc-image/scripts/ryomc_image.py" configure
+git clone https://github.com/666666666666gao/image.git
+cd image
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python plugins/ryomc-image/server.py configure
+codex mcp add ryomc-image -- "$(pwd)/.venv/bin/python" "$(pwd)/plugins/ryomc-image/server.py"
+codex mcp list
 ```
 
-`configure` 默认使用 `https://api.ryomc.top/v1`，会在终端隐藏输入密钥；需要自定义站点时可加 `--base-url https://你的站点/v1`。图片工具模型为 `gpt-image-2`。聊天主模型不再保存在此配置中，而是在每次生成时通过 `--model` 指定。
+安装后重启 Codex Desktop，开启新对话。仓库与 `.venv` 需要留在原位置；如果移动它们，应先执行 `codex mcp remove ryomc-image`，再用新路径重新添加。
 
-密钥保存在本机用户目录的 `~/.config/ryomc-image/config.json`，**不是加密文件**；请仅使用自己创建的限额密钥，不要把该文件上传或发给别人。macOS / Linux 文件权限设为仅当前用户可读写。
+密钥保存在当前用户的 `~/.config/ryomc-image/config.json`（与旧版 Skill 相同）；这是本机明文配置，**不在 Git 仓库里**。macOS/Linux 上脚本将其权限设为仅当前用户可读写。如需更换密钥，再运行一次 `configure`。如需更换 API 站点，可运行 `configure --base-url https://你的站点/v1`。
 
-安装或更新后，重启 Codex Desktop 并开启新对话。
-如果你自定义了 `CODEX_HOME`，请把上面安装路径中的 `~/.codex` 换成该目录。
+## 在 Codex Desktop 中使用
 
-## 在对话中使用
+- 文生图：“调用 `ryomc-image` 的 `image_generate`，画一张雨夜咖啡店插画。”
+- 图生图：“调用 `ryomc-image` 的 `image_edit`，把 `C:\Pictures\photo.jpg` 改成水彩风格。” macOS/Linux 使用本机实际绝对路径。
+- 局部编辑：给 `image_edit` 传 `mask_path`，必须是 PNG。透明区域是希望修改的位置。
+- 检查连接配置：“调用 `ryomc-image` 的 `server_info`。”它只报告是否找到本机配置，不会显示密钥。
 
-- “用 Ryomc Image 生成一张雨夜咖啡店的插画。”
-- “用 Ryomc Image 把我附上的照片改成水彩风格。”（附上本机 PNG、JPEG 或 WebP；若 Codex 无法取得附件的本机路径，提供路径。）
-- 如果自动识别不到，明确写 `$ryomc-image`，例如：“`$ryomc-image` 生成一张横版海报。”
+生成图保存在当前用户的 `Pictures/RyomcImages`，工具结果同时返回图片预览和本机绝对路径。图片工具模型固定为 `gpt-image-2`，**不依赖当前聊天选中的 `gpt-6-sol` 等模型**。
 
-Skill 会把当前对话的聊天模型 ID 作为 `--model` 传给脚本，例如当前选用 `gpt-6-sol` 时传 `--model gpt-6-sol`。Codex Desktop 没有向这个本地脚本提供可依赖的“当前对话模型”接口；如果 Skill 无法获知准确 ID，它会先问你，不会擅自使用安装时的旧模型。手动运行示例：
+## 插件市场安装（可选）
 
-```text
-python ryomc_image.py generate --model gpt-6-sol --prompt "雨夜咖啡店的插画"
-```
+仓库保留了 `.agents/plugins/marketplace.json`，也可作为 Codex 插件市场来源。该方式仍需要你在本机的 `python` 环境安装 `mcp>=2.2,<3`，并运行 `configure` 保存用户密钥。若系统上的 `python` 不是刚才创建的虚拟环境，建议使用上面的 `codex mcp add` 手动方式，以免插件启动时找不到依赖。
 
-生成图默认保存在本机 `~/Pictures/RyomcImages`。每次调用只生成一张；多张图片是多次请求。实际扣费请以站点使用日志为准。
+## 常见问题
 
-## 可选：通过插件市场安装
+- `401 Invalid token`：检查本机密钥是否为 Ryomc 创建的用户密钥，重新运行 `configure`；不要在聊天里发密钥。
+- `403`：检查密钥的 `image` 分组和模型权限，也可能是站点/上游拒绝 Images API。查看错误中的 request id，并请管理员查 New API/CPA 日志。
+- 结果提示“没有返回 base64 图片”：本 MCP 为避免下载不可信 URL，固定请求 `b64_json`；请先查 Ryomc 使用日志确认是否扣费，不要直接重试。
+- 看不到 MCP 工具：执行 `codex mcp list`，确认 Python 依赖已安装、仓库路径未移动，然后重启 Codex Desktop。
 
-仓库也包含 Codex 插件清单 `.agents/plugins/marketplace.json`。支持插件市场的 Codex 客户端可以运行 `codex plugin marketplace add 666666666666gao/image`，然后在 Desktop 的插件目录中选择 **Ryomc Image** 安装。插件安装后仍要在自己的终端运行 Skill 中的 `configure`，且本机必须有 Python 3.10+。直接复制 Skill 是最简单、最可控的安装方式。
-
-## 本地验证
+## 开发验证
 
 ```text
 python -m unittest discover -s tests -v
 ```
 
-测试使用模拟响应，不发送真实生图请求，也不会扣费。
+测试使用模拟 HTTP 响应，不发起收费生图请求。仓库没有附带任何 API 密钥。

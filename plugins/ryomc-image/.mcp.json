@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ryomc-image": {
+      "command": "python",
+      "args": ["${PLUGIN_ROOT}/server.py"]
+    }
+  }
+}
