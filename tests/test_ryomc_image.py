@@ -19,10 +19,9 @@ class ImageToolTests(unittest.TestCase):
     def test_base_url_and_secret_config(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "config.json"
-            module.save_config("https://api.ryomc.top/v1/", "gpt-6-astra", "sk-test", path)
+            module.save_config("https://api.ryomc.top/v1/", "sk-test", path)
             self.assertEqual(module.load_config(path), {
                 "base_url": "https://api.ryomc.top/v1",
-                "model": "gpt-6-astra",
                 "api_key": "sk-test",
             })
             self.assertNotIn("sk-test", str(path))
@@ -30,9 +29,9 @@ class ImageToolTests(unittest.TestCase):
             module.normalize_base_url("http://api.ryomc.top/v1")
 
     def test_text_to_image_request(self):
-        payload = module.make_payload("a blue circle", "gpt-6-astra", "low")
-        self.assertEqual(payload["model"], "gpt-6-astra")
-        self.assertEqual(payload["tools"][0]["model"], "gpt-image-2.5-sunburst")
+        payload = module.make_payload("a blue circle", "gpt-6-sol", "low")
+        self.assertEqual(payload["model"], "gpt-6-sol")
+        self.assertEqual(payload["tools"][0]["model"], "gpt-image-2")
         self.assertEqual(payload["tool_choice"], {"type": "image_generation"})
         self.assertFalse(payload["store"])
         self.assertFalse(payload["stream"])
@@ -81,16 +80,28 @@ class ImageToolTests(unittest.TestCase):
                 return FakeResponse(json.dumps(response).encode("utf-8"))
 
         self_request = {}
-        config = {"base_url": "https://api.ryomc.top/v1", "model": "gpt-6-astra", "api_key": "sk-test"}
+        config = {"base_url": "https://api.ryomc.top/v1", "api_key": "sk-test"}
         with tempfile.TemporaryDirectory() as folder:
             with patch.object(module.urllib.request, "build_opener", return_value=FakeOpener()) as mocked:
-                path = module.generate("A cat", "low", None, Path(folder), config)
+                path = module.generate("A cat", "gpt-6-sol", "low", None, Path(folder), config)
             self.assertEqual(path.read_bytes(), PNG)
         request = self_request["request"]
         self.assertEqual(request.full_url, "https://api.ryomc.top/v1/responses")
         self.assertEqual(request.get_header("Authorization"), "Bearer sk-test")
+        payload = json.loads(request.data)
+        self.assertEqual(payload["model"], "gpt-6-sol")
+        self.assertEqual(payload["tools"][0]["model"], "gpt-image-2")
         self.assertEqual(self_request["timeout"], 240)
         self.assertIs(mocked.call_args.args[0], module.NoRedirect)
+
+    def test_cli_passes_current_chat_model_to_request(self):
+        config = {"base_url": "https://api.ryomc.top/v1", "api_key": "sk-test"}
+        with patch.object(module, "load_config", return_value=config), \
+                patch.object(module, "generate", return_value=Path("image.png")) as generate, \
+                patch("sys.stdout", new_callable=io.StringIO):
+            result = module.main(["generate", "--prompt", "A cat", "--model", "gpt-6-sol"])
+        self.assertEqual(result, 0)
+        self.assertEqual(generate.call_args.args[0:3], ("A cat", "gpt-6-sol", "low"))
 
     def test_failed_or_invalid_response_writes_nothing(self):
         with tempfile.TemporaryDirectory() as folder:

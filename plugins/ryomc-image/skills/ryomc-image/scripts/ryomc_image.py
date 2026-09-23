@@ -16,8 +16,7 @@ import uuid
 
 CONFIG_PATH = Path.home() / ".config" / "ryomc-image" / "config.json"
 DEFAULT_BASE_URL = "https://api.ryomc.top/v1"
-DEFAULT_MODEL = "gpt-6-astra"
-IMAGE_MODEL = "gpt-image-2.5-sunburst"
+IMAGE_MODEL = "gpt-image-2"
 IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -40,10 +39,10 @@ def normalize_base_url(value):
     return urllib.parse.urlunsplit(parsed)
 
 
-def save_config(base_url, model, key, path=CONFIG_PATH):
-    data = {"base_url": normalize_base_url(base_url), "model": model.strip(), "api_key": key.strip()}
-    if not data["model"] or not data["api_key"]:
-        raise ValueError("A model and API key are required.")
+def save_config(base_url, key, path=CONFIG_PATH):
+    data = {"base_url": normalize_base_url(base_url), "api_key": key.strip()}
+    if not data["api_key"]:
+        raise ValueError("An API key is required.")
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as output:
@@ -60,7 +59,6 @@ def load_config(path=CONFIG_PATH):
     data = json.loads(path.read_text(encoding="utf-8"))
     return {
         "base_url": normalize_base_url(data["base_url"]),
-        "model": data["model"],
         "api_key": data["api_key"],
     }
 
@@ -118,8 +116,8 @@ def save_image(response, directory):
     return path.resolve()
 
 
-def generate(prompt, quality, input_image, output_dir, config):
-    payload = make_payload(prompt, config["model"], quality, input_image)
+def generate(prompt, model, quality, input_image, output_dir, config):
+    payload = make_payload(prompt, model, quality, input_image)
     request = urllib.request.Request(
         config["base_url"] + "/responses",
         data=json.dumps(payload).encode("utf-8"),
@@ -140,9 +138,9 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     configure = commands.add_parser("configure", help="Save this user's site key locally")
     configure.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    configure.add_argument("--model", default=DEFAULT_MODEL)
     create = commands.add_parser("generate", help="Generate or edit one image")
     create.add_argument("--prompt", required=True)
+    create.add_argument("--model", required=True, help="Exact model ID selected for this chat")
     create.add_argument("--input-image", type=Path)
     create.add_argument("--quality", choices=["low", "medium", "high"], default="low")
     create.add_argument("--output-dir", type=Path, default=Path.home() / "Pictures" / "RyomcImages")
@@ -151,11 +149,11 @@ def main(argv=None):
     try:
         if args.command == "configure":
             key = getpass.getpass("Your New API key (hidden): ")
-            path = save_config(args.base_url, args.model, key)
+            path = save_config(args.base_url, key)
             print(f"Saved configuration to {path}. Do not share this file.")
         else:
             path = generate(
-                args.prompt, args.quality, args.input_image, args.output_dir, load_config()
+                args.prompt, args.model, args.quality, args.input_image, args.output_dir, load_config()
             )
             print(json.dumps({"image_path": str(path)}, ensure_ascii=False))
     except urllib.error.HTTPError as error:

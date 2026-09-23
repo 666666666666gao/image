@@ -32,7 +32,7 @@ cp -R ./image/plugins/ryomc-image/skills/ryomc-image "$HOME/.codex/skills/ryomc-
 python3 "$HOME/.codex/skills/ryomc-image/scripts/ryomc_image.py" configure
 ```
 
-`configure` 默认使用 `https://api.ryomc.top/v1` 和聊天模型 `gpt-6-astra`，会在终端隐藏输入密钥。需要自定义时可加 `--base-url https://你的站点/v1 --model 你的聊天模型`。生图工具模型固定为 `gpt-image-2.5-sunburst`。
+`configure` 默认使用 `https://api.ryomc.top/v1`，会在终端隐藏输入密钥；需要自定义站点时可加 `--base-url https://你的站点/v1`。图片工具模型为 `gpt-image-2`。聊天主模型不再保存在此配置中，而是在每次生成时通过 `--model` 指定。
 
 密钥保存在本机用户目录的 `~/.config/ryomc-image/config.json`，**不是加密文件**；请仅使用自己创建的限额密钥，不要把该文件上传或发给别人。macOS / Linux 文件权限设为仅当前用户可读写。
 
@@ -44,6 +44,12 @@ python3 "$HOME/.codex/skills/ryomc-image/scripts/ryomc_image.py" configure
 - “用 Ryomc Image 生成一张雨夜咖啡店的插画。”
 - “用 Ryomc Image 把我附上的照片改成水彩风格。”（附上本机 PNG、JPEG 或 WebP；若 Codex 无法取得附件的本机路径，提供路径。）
 - 如果自动识别不到，明确写 `$ryomc-image`，例如：“`$ryomc-image` 生成一张横版海报。”
+
+Skill 会把当前对话的聊天模型 ID 作为 `--model` 传给脚本，例如当前选用 `gpt-6-sol` 时传 `--model gpt-6-sol`。Codex Desktop 没有向这个本地脚本提供可依赖的“当前对话模型”接口；如果 Skill 无法获知准确 ID，它会先问你，不会擅自使用安装时的旧模型。手动运行示例：
+
+```text
+python ryomc_image.py generate --model gpt-6-sol --prompt "雨夜咖啡店的插画"
+```
 
 生成图默认保存在本机 `~/Pictures/RyomcImages`。每次调用只生成一张；多张图片是多次请求。实际扣费请以站点使用日志为准。
 
