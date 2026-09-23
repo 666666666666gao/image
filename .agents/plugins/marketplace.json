@@ -1,0 +1,20 @@
+{
+  "name": "ryomc-image",
+  "interface": {
+    "displayName": "Ryomc Image"
+  },
+  "plugins": [
+    {
+      "name": "ryomc-image",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ryomc-image"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

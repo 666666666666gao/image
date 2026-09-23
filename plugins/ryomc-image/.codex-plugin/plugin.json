@@ -1,0 +1,24 @@
+{
+  "name": "ryomc-image",
+  "version": "0.1.0",
+  "description": "Generate and edit images through a user's Ryomc New API key in Codex.",
+  "author": {
+    "name": "666666666666gao",
+    "url": "https://github.com/666666666666gao"
+  },
+  "repository": "https://github.com/666666666666gao/image",
+  "homepage": "https://github.com/666666666666gao/image",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ryomc Image",
+    "shortDescription": "Generate or edit images in Codex via Ryomc.",
+    "longDescription": "Ask Codex to generate an image or edit a local image through your own Ryomc API key. Requires one-time local setup; keys are never included in the plugin.",
+    "developerName": "666666666666gao",
+    "category": "Productivity",
+    "capabilities": ["Write"],
+    "defaultPrompt": [
+      "用 Ryomc Image 生成一张插画：雨夜中的咖啡店。",
+      "用 Ryomc Image 把我附上的图片改成水彩风格。"
+    ]
+  }
+}
